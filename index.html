@@ -186,7 +186,7 @@ function applySong(i){songSel=((i%SONGS.length)+SONGS.length)%SONGS.length;CUR=S
  BPM=CUR.bpm;BEAT=60/BPM;STEP=BEAT/2;BAR=STEP*8;let dd=0;try{dd=diff;}catch(e){}SONG=genSong(CUR,dd);curThemeId=CUR.theme;}
 function songLen(S){if(S.custom)return S.duration;const bars=4+Math.max(16,parseMel(S.mel,0).length)*3+1+8+1+4;return bars*8*30/S.bpm;}
 
-let BARS=[],FINISH=[],CH=[],BASE=[],RUSH=null;
+let BARS=[],FINISH=[],CH=[],BASE=[],RUSH=null;const RUSH_X=()=>JX+240;
 const WIN={p:0.05,g:0.095,o:0.145};
 function buildBase(diff){
  BARS=[];FINISH=[];CH=[];BASE=[];RUSH=null;let cc=0,open=null;
@@ -1125,19 +1125,22 @@ function press(k){
 function rushHit(k,now){RUSH.hits++;player.score+=120;player.combo++;player.maxCombo=Math.max(player.maxCombo,player.combo);
  const act=k==='J'?(RUSH.hits%2?'J':'J2'):(RUSH.hits%2?'S':'S2');doAction(player,act,now);bossHit=now;
  sfx(RUSH.hits%4===0?'D':k==='J'?'J':'S',RUSH.hits%8===0);shake=Math.max(shake,3);camPunch=Math.max(camPunch,0.012);
- const x=1000+rand(-70,70),y=FLOOR-210+rand(-110,80);fx.push({type:'star4',x,y,t0:now,dur:0.16,r:58});burst(x,y,5,['#ffd23f','#ff7a3d','#ffffff','#ff8fc8']);
- pops.push({txt:String(RUSH.hits),sub:'',col:'#ff4fa0',t:now,x:x+rand(-20,20),y:y-30});pops.splice(0,Math.max(0,pops.length-8));}
-function rushFinish(f,now){const R0=RUSH;RUSH=null;const tot=R0?R0.hits+R0.bot:0,ratio=R0?Math.min(1.5,tot/Math.max(1,R0.goal)):0;
+ const x=RUSH_X()+rand(-60,40),y=FLOOR-170+rand(-100,80);fx.push({type:'star4',x,y,t0:now,dur:0.16,r:70});fx.push({type:'impact',x,y,t0:now,dur:0.1,r:48});burst(x,y,5,['#ffd23f','#ff7a3d','#ffffff','#ff8fc8']);
+ }
+function rushFinish(f,now){const R0=RUSH;RUSH=null;f.launchT=now;pops.push({txt:'K.O.!',sub:'',col:'#ffd23f',t:now,x:RUSH_X()+40,y:FLOOR-300});const tot=R0?R0.hits+R0.bot:0,ratio=R0?Math.min(1.5,tot/Math.max(1,R0.goal)):0;
  const bonus=Math.round(5000*f.gauge*(0.6+0.4*Math.min(1,ratio)))+(R0?R0.hits*80:0);actors.forEach(a=>a.score+=bonus);player.hp=Math.min(player.maxHp,player.hp+player.maxHp*0.2);
  const grade=ratio>=1.2?'PERFECT RUSH!':ratio>=0.9?'GREAT RUSH!':'RUSH';
  banners.push({txt:mode===1?'HARMONY FINISH!':'PRISM FINISH!',sub:`${grade}  내 연타 ${R0?R0.hits:0}${mode===1?' · 팀 '+tot:''}회  ·  +${bonus.toLocaleString()}`,col:'#1fd6a0',t:now,dur:2.4});
- if(ratio>=0.9)for(let i=0;i<3;i++)fx.push({type:'ring',x:1000,y:330,r0:30,r1:520+i*90,col:i%2?'#ffd23f':'#ff8fc8',t0:now+i*0.1,dur:0.6,w:8});}
+ if(ratio>=0.9)for(let i=0;i<3;i++)fx.push({type:'ring',x:RUSH_X(),y:FLOOR-170,r0:30,r1:520+i*90,col:i%2?'#ffd23f':'#ff8fc8',t0:now+i*0.1,dur:0.6,w:8});}
 function drawRush(now){if(!RUSH||now>=RUSH.end+0.05)return;const p=clamp((now-RUSH.start)/(RUSH.end-RUSH.start),0,1),tot=RUSH.hits+RUSH.bot,gk=clamp(tot/RUSH.goal,0,1.5);
- g.save();g.translate(W/2+40,150);const pul=1+Math.max(0,0.12-((now*8)%1)*0.12);g.scale(pul,pul);g.rotate(-0.05);g.textAlign='center';g.lineJoin='round';
+ {const hp=now-bossHit,ps=hp<0.1?1.35-hp*3.5:1;g.save();g.translate(RUSH_X()+300,FLOOR-250);g.scale(ps,ps);g.rotate(-0.06);g.textAlign='center';g.lineJoin='round';
+  g.font=`900 italic 74px ${FONT}`;g.lineWidth=14;g.strokeStyle='#5a1a6a';g.strokeText(String(tot),0,0);const hg=g.createLinearGradient(0,-60,0,6);hg.addColorStop(0,'#fffbd0');hg.addColorStop(1,'#ffb020');g.fillStyle=hg;g.fillText(String(tot),0,0);
+  g.font=`900 italic 28px ${FONT}`;g.lineWidth=8;g.strokeText('HIT!',0,34);g.fillStyle='#fff';g.fillText('HIT!',0,34);g.restore();}
+ g.save();g.translate(RUSH_X()+300,FLOOR-345);const pul=1+Math.max(0,0.12-((now*8)%1)*0.12);g.scale(pul*0.62,pul*0.62);g.rotate(-0.05);g.textAlign='center';g.lineJoin='round';
  g.font=`900 italic 72px ${FONT}`;g.lineWidth=14;g.strokeStyle='#5a1a6a';g.strokeText('연타!!',0,0);g.lineWidth=6;g.strokeStyle='#fff';g.strokeText('연타!!',0,0);
  const tg=g.createLinearGradient(0,-60,0,6);tg.addColorStop(0,'#fff27a');tg.addColorStop(1,'#ff4fa0');g.fillStyle=tg;g.fillText('연타!!',0,0);g.restore();
- const on=Math.floor(now*14)%2;[['J',W/2-60],['S',W/2+140]].forEach(([k,x],i)=>{keycap(x,196,laneLabel(k),k==='J'?KEYCOL.J:KEYCOL.S,30,16);if((on+i)%2){g.save();g.globalAlpha=0.5;g.fillStyle='#fff';g.beginPath();g.arc(x+18,212,30,0,TAU);g.fill();g.restore();}});
- const bx=W/2-200,by=250,bw=480;g.fillStyle='rgba(30,10,50,0.75)';rr(bx-4,by-4,bw+8,30,14);g.fill();
+ const on=Math.floor(now*14)%2;[['J',RUSH_X()+200],['S',RUSH_X()+330]].forEach(([k,x],i)=>{keycap(x,FLOOR-150,laneLabel(k),k==='J'?KEYCOL.J:KEYCOL.S,30,16);if((on+i)%2){g.save();g.globalAlpha=0.5;g.fillStyle='#fff';g.beginPath();g.arc(x+18,FLOOR-134,30,0,TAU);g.fill();g.restore();}});
+ const bx=RUSH_X()+170,by=FLOOR-205,bw=290;g.fillStyle='rgba(30,10,50,0.75)';rr(bx-4,by-4,bw+8,30,14);g.fill();
  const gg=g.createLinearGradient(bx,0,bx+bw,0);for(let q=0;q<6;q++)gg.addColorStop(q/5,`hsl(${(now*200+q*55)%360},95%,65%)`);g.fillStyle=gg;rr(bx,by,bw*Math.min(1,gk),22,11);g.fill();
  g.strokeStyle='#fff';g.lineWidth=3;g.beginPath();g.moveTo(bx+bw*0.9,by-6);g.lineTo(bx+bw*0.9,by+28);g.stroke();
  g.font=`900 italic 22px ${FONT}`;g.lineJoin='round';g.lineWidth=6;g.strokeStyle='#5a1a6a';g.fillStyle='#fff';g.textAlign='left';g.strokeText(`${mode===1?'TEAM ':''}${tot} HIT`,bx,by+52);g.fillText(`${mode===1?'TEAM ':''}${tot} HIT`,bx,by+52);g.textAlign='right';g.strokeText(`나 ${RUSH.hits}`,bx+bw,by+52);g.fillText(`나 ${RUSH.hits}`,bx+bw,by+52);
@@ -1255,21 +1258,21 @@ function update(now,dt){
      for(const a of actors){const p=finishPos(a);for(let i=0;i<3;i++)fx.push({type:'ring',x:p[0],y:p[1],r0:5,r1:260+i*80,col:'#3dffc8',t0:now+i*0.12,dur:0.7,w:5});}
      const rd=Math.max(1.3,BAR*0.92),alive=actors.filter(a=>a!==player&&!a.ko&&a.kind!=='net').length;
      RUSH={f,start:now,end:now+rd,hits:0,bot:0,goal:Math.round(rd*(9+alive*10)*0.8),lastT:now};f.rushEnd=now+rd;
-     banners.push({txt:mode===1?'HARMONY RUSH!':'PRISM RUSH!',sub:`${mode===1?'다 같이 ':''}연타!!  F · J 마구 누르기`,col:'#ff4fa0',t:now,dur:Math.min(1.1,rd)});
+     banners.push({txt:mode===1?'HARMONY RUSH!':'PRISM RUSH!',sub:`${mode===1?'다 같이 ':''}연타!!  F · J 마구 누르기`,col:'#ff4fa0',t:now,dur:0.6,small:true});
      onSfx(()=>{tone('sawtooth',440,AC.currentTime,0.25,0.12,880);tone('square',660,AC.currentTime+0.08,0.2,0.08,1320);});}
     else{banners.push({txt:'SYNC BREAK…',sub:`${mode===1?'TEAM SYNC':'SOLO SYNC'} ${Math.round(f.gauge*100)}%  (필요 ${Math.round(THRESH()*100)}%)`,col:'#8a90a8',t:now,dur:2});shake=8;}}
    else{// battle: chorus burst attack
     for(const a of actors){if(a.ko||a.kind==='net')continue;const acc=a.chHits[f.ci]/CH[f.ci].total;if(acc>=0.7){sendAttack(a,4,now);if(a===player)banners.push({txt:'BURST ATTACK!',sub:`후렴 정확도 ${Math.round(acc*100)}% · 방해 4개 발사`,col:'#ff7a3d',t:now,dur:1.6});}}}
   }
   if(f.done&&f.success&&!f.exploded&&now>=(f.rushEnd||f.t+0.55)){f.exploded=true;shake=16;rushFinish(f,now);
-   burst(1000,330,100,['#3dffc8','#ffffff','#ffb0e0','#c9b0ff','#ffe066']);fx.push({type:'flash',t0:now,dur:0.35});fx.push({type:'ring',x:1000,y:330,r0:20,r1:440,col:'#ffffff',t0:now,dur:0.5,w:10});
+   {const ex=f.rushEnd?RUSH_X():1000,ey=f.rushEnd?FLOOR-170:330;burst(ex,ey,100,['#3dffc8','#ffffff','#ffb0e0','#c9b0ff','#ffe066']);fx.push({type:'flash',t0:now,dur:0.35});fx.push({type:'ring',x:ex,y:ey,r0:20,r1:440,col:'#ffffff',t0:now,dur:0.5,w:10});fx.push({type:'lines',x:ex,y:ey,t0:now,dur:0.3});}
    if(AC){crash(AC.currentTime,0.3);tone('sine',90,AC.currentTime,0.5,0.6,40);}}
  }
  // harmony rush: bots mash too
  if(RUSH&&now<RUSH.end){const step=Math.max(0,now-RUSH.lastT);RUSH.lastT=now;
   for(const a of actors){if(a===player||a.ko||a.kind==='net')continue;a.rushAcc=(a.rushAcc||0)+step*(9+Math.random()*4);
    while(a.rushAcc>=1){a.rushAcc-=1;RUSH.bot++;a.score+=60;if(Math.random()<0.5)doAction(a,Math.random()<0.5?'S':'J',now);
-    if(Math.random()<0.35)fx.push({type:'impact',x:1000+rand(-90,90),y:FLOOR-200+rand(-120,90),t0:now,dur:0.1,r:26});}}}
+    if(Math.random()<0.35){fx.push({type:'impact',x:RUSH_X()+rand(-70,50),y:FLOOR-170+rand(-110,80),t0:now,dur:0.1,r:30});bossHit=now;}}}}
  // battle garbage landing
  if(mode===2)for(const a of actors){if(a.ko||a.kind==='net')continue;while(a.incoming.length&&now>=a.incoming[0].land){const it=a.incoming.shift();insertGarbage(a,it.n,now);}}
  // banners: chorus
@@ -1394,7 +1397,16 @@ function drawNotes(now){
 let BOSSX=null;
 function drawBoss(now){
  BOSSX=null;if(mode===2)return;
- for(const f of FINISH){if(f.exploded)continue;const cs=CH[f.ci]?CH[f.ci].start:f.t-BAR*8,d=now-f.t;if(now<cs-0.6||d>3+(f.rushEnd?f.rushEnd-f.t:0))continue;
+ for(const f of FINISH){
+  if(f.exploded){if(f.launchT!=null&&now-f.launchT<1.2){const q=now-f.launchT,X=RUSH_X()+1050*q,Y=FLOOR+6-1150*q+760*q*q;g.save();g.translate(X,Y-140);g.rotate(q*13);g.scale(1.7*(1-q*0.35),1.7*(1-q*0.35));g.translate(0,140/1.7);
+    if(!(artOn&&ART_N&&spr('boss',0,0,200,0.5,1)))drawKnight(now);g.restore();}continue;}
+  const cs=CH[f.ci]?CH[f.ci].start:f.t-BAR*8,d=now-f.t;
+  if(RUSH&&RUSH.f===f){const k=clamp((now-RUSH.start)/0.22,0,1),e=1-Math.pow(1-k,3),x=1000+(RUSH_X()-1000)*e,hit=now-bossHit,jit=hit<0.06?4:0;
+   const sq=hit<0.09?1-Math.sin(hit/0.09*Math.PI)*0.16:1;g.save();g.translate(x+rand(-jit,jit),FLOOR+6+rand(-jit,jit));g.scale(1.7*(2-sq),1.7*sq);
+   if(hit<0.05){g.globalCompositeOperation='source-over';}
+   if(!(artOn&&ART_N&&spr(hit<0.07?'bossfire':'boss',0,0,200,0.5,1)))drawKnight(now);g.restore();
+   if(hit<0.05){g.save();g.globalCompositeOperation='lighter';g.globalAlpha=0.5*(1-hit/0.05);g.fillStyle='#fff';g.beginPath();g.ellipse(x,FLOOR-170,120,170,0,0,TAU);g.fill();g.restore();}
+   continue;}if(now<cs-0.6||d>3+(f.rushEnd?f.rushEnd-f.t:0))continue;
   let x,sc;if(d<-2.4){x=1150+Math.max(0,cs-now)*500;sc=1.4;}else if(d<0){const k=(d+2.4)/2.4;x=1150-150*k;sc=1.4+0.7*k;}else{x=1000;sc=2.1;if(f.done&&!f.success&&d>0.4)x=1000+(d-0.4)*500;}
   const bob=d<0?Math.sin(now*3)*8:0,thr=beatPulse(now);
   g.save();g.translate(x,FLOOR+6+bob);g.scale(sc,sc);g.rotate(-thr*0.07);{const fire=now-bossFire<0.16,fl=now-bossHit<0.2?Math.sin((now-bossHit)*70)*5:0;if(!(artOn&&ART_N&&spr(fire?'bossfire':'boss',fl+(fire?6:0),0,Math.min(200,380/sc),0.5,1)))drawKnight(now);}g.restore();
@@ -1574,10 +1586,9 @@ function drawPlay(now,dt){
  drawLanes(now);
  drawBoss(now);
  // co-op finish: teammates leap into the main stage
- if(mode<2&&bots.length){const d=now-finishIn;if(d>-0.1&&d<1.9){const a=Math.min(1,(d+0.1)*5,(1.9-d)*3);g.save();g.globalAlpha=Math.max(0,a);
+ if(mode<2&&bots.length){const d=now-finishIn,dE=RUSH?RUSH.end-finishIn+0.35:1.9;if(d>-0.1&&d<dE){const a=Math.min(1,(d+0.1)*5,(dE-d)*3);g.save();g.globalAlpha=Math.max(0,a);
   bots.forEach((b,i)=>{const p=TEAM_POS[i];drawActor(b,p[0]-(1-Math.min(1,d*4))*80,p[1],0.8,now,1,true,0.6);});g.restore();
-  if(d>0.25&&d<0.8){g.save();g.globalCompositeOperation='lighter';g.shadowColor='#3dffc8';g.shadowBlur=24;const al=1-Math.abs(d-0.5)/0.3;
-   for(const ac of actors){const p=finishPos(ac);g.strokeStyle=`rgba(61,255,200,${Math.max(0,al)})`;g.lineWidth=10;g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(1000,330);g.stroke();g.strokeStyle=`rgba(255,255,255,${Math.max(0,al)})`;g.lineWidth=3;g.stroke();}g.restore();}}}
+  }}
  drawItems(now);drawNotes(now);
  if(mode<2&&bots.length&&now-syncFlash<0.25){g.save();g.globalCompositeOperation='lighter';g.strokeStyle=`rgba(61,255,200,${1-(now-syncFlash)/0.25})`;g.lineWidth=4;g.shadowColor='#3dffc8';g.shadowBlur=16;
   const p=finishPos(player);g.beginPath();g.arc(p[0],p[1],30+(now-syncFlash)*120,0,TAU);g.stroke();g.restore();}
