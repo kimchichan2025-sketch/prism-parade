@@ -2073,10 +2073,56 @@ const ART_URL='https://claude.ai/artifact/MFKGmjZb978dUJRe3TmFzq';
 const NET={room:null,user:null,named:null,code:'',isHost:false,status:'loading',err:'',info:'',names:{},offs:{},myPeer:null,
  codeBuf:'',game:null,out:{},gbList:[],pubT:0,lastStartGid:null,j:0,clkT:0,lobT:0,busy:false,ready:false,
  nick:'Player-'+(100+Math.floor(Math.random()*900)),peers:[],peerMap:{},copiedT:-9};
+
+// ---- P2P room shim (PeerJS / WebRTC) : same interface as the claude.ai room capability ----
+function loadPeerJS(){return new Promise((res,rej)=>{if(window.Peer)return res();const sc=document.createElement('script');sc.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';sc.onload=()=>res();sc.onerror=()=>{const s2=document.createElement('script');s2.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';s2.onload=()=>res();s2.onerror=rej;document.head.appendChild(s2);};document.head.appendChild(sc);});}
+function makeP2PRoot(){
+ const me={presence:{}};const root={
+  presence(patch){Object.assign(me.presence,patch||{});for(const k in me.presence)if(me.presence[k]==null)delete me.presence[k];return Promise.resolve();},
+  peers(){return[{peer:'me',isMe:true,sameTab:true,kind:'viewer',presence:me.presence,updatedAt:Date.now()}];},
+  onPeers(cb,err){root._err=err;},
+  join(name){return p2pJoin(name);}};
+ return root;}
+function p2pJoin(name){return new Promise((resolve,reject)=>{
+ const hubId='prismparade-'+name.replace(/[^a-z0-9-]/gi,'').toLowerCase();
+ const R={hub:false,peer:null,conn:null,conns:new Map(),state:new Map(),myId:null,myPres:{},cbs:[],errs:[],dead:false,lastSend:0,pendingSend:false};
+ const fire=()=>{for(const c of R.cbs)try{c();}catch(e){}};
+ const fail=(code)=>{for(const c of R.errs)try{c({code});}catch(e){}};
+ const snapshot=()=>[...R.state.entries()].map(([peer,v])=>({peer,presence:v.presence,updatedAt:v.updatedAt}));
+ const broadcast=()=>{const msg={t:'s',peers:snapshot()};for(const c of R.conns.values())if(c.open)try{c.send(msg);}catch(e){}};
+ let bT=0,bQ=false;const bcast=()=>{const n=performance.now();if(n-bT>40){bT=n;broadcast();}else if(!bQ){bQ=true;setTimeout(()=>{bQ=false;bT=performance.now();broadcast();},45);}};
+ const sendMine=()=>{if(R.hub){R.state.set(R.myId,{presence:{...R.myPres},updatedAt:Date.now()});fire();bcast();return;}
+  if(R.conn&&R.conn.open)try{R.conn.send({t:'p',presence:R.myPres});}catch(e){}};
+ const api={
+  presence(patch){Object.assign(R.myPres,patch||{});for(const k in R.myPres)if(R.myPres[k]==null)delete R.myPres[k];sendMine();return Promise.resolve();},
+  peers(){const out=[];for(const [peer,v] of R.state.entries())out.push({peer,isMe:peer===R.myId,sameTab:peer===R.myId,kind:'viewer',presence:v.presence||{},updatedAt:v.updatedAt});
+   if(R.myId&&!R.state.has(R.myId))out.push({peer:R.myId,isMe:true,sameTab:true,kind:'viewer',presence:R.myPres,updatedAt:Date.now()});return out;},
+  onPeers(cb,err){if(cb)R.cbs.push(cb);if(err)R.errs.push(err);},
+  leave(){R.dead=true;clearInterval(R.hb);try{R.peer&&R.peer.destroy();}catch(e){}return Promise.resolve();}};
+ const asHub=()=>{R.hub=true;R.myId=R.peer.id;R.state.set(R.myId,{presence:{...R.myPres},updatedAt:Date.now()});
+  R.peer.on('connection',c=>{c.on('data',d=>{if(!d||typeof d!=='object')return;if(d.t==='p'){R.state.set(c.peer,{presence:d.presence||{},updatedAt:Date.now()});fire();bcast();}});
+   c.on('open',()=>{R.conns.set(c.peer,c);try{c.send({t:'s',peers:snapshot()});}catch(e){}});
+   const gone=()=>{R.conns.delete(c.peer);if(R.state.delete(c.peer)){fire();bcast();}};c.on('close',gone);c.on('error',gone);});
+  R.hb=setInterval(()=>{if(R.state.has(R.myId))R.state.get(R.myId).updatedAt=Date.now();broadcast();},1000);
+  resolve(api);};
+ const asMember=()=>{R.hub=false;R.peer=new Peer(undefined,{debug:0});
+  R.peer.on('open',id=>{R.myId=id;const c=R.peer.connect(hubId,{reliable:true});R.conn=c;
+   const to=setTimeout(()=>{if(!c.open){fail('timeout');reject(new Error('timeout'));}},9000);
+   c.on('open',()=>{clearTimeout(to);try{c.send({t:'p',presence:R.myPres});}catch(e){}resolve(api);});
+   c.on('data',d=>{if(d&&d.t==='s'){R.state=new Map(d.peers.map(x=>[x.peer,{presence:x.presence,updatedAt:x.updatedAt}]));fire();}});
+   c.on('close',()=>{if(!R.dead){fail('host-left');}});
+   R.hb=setInterval(()=>{if(c.open)try{c.send({t:'p',presence:R.myPres});}catch(e){}},2000);});
+  R.peer.on('error',e=>{if(e&&e.type==='peer-unavailable'){fail('no-room');reject(new Error('no-room'));}else{fail(e&&e.type||'error');}});};
+ // try to claim the hub id first; if taken, join as a member
+ R.peer=new Peer(hubId,{debug:0});
+ R.peer.on('open',()=>asHub());
+ R.peer.on('error',e=>{if(R.hub){fail(e&&e.type||'error');return;}if(e&&e.type==='unavailable-id'){try{R.peer.destroy();}catch(_){}asMember();}else if(!R.myId){reject(e);}});
+});}
 async function netInit(){
- const C=window.claude;if(!C||typeof C.use!=='function'){NET.status='off';return;}
- try{NET.room=await C.use('room');}catch(e){NET.room=null;}
- try{NET.user=await C.use('user');}catch(e){NET.user=null;}
+ const C=window.claude;
+ if(!C||typeof C.use!=='function'){try{await loadPeerJS();NET.room=makeP2PRoot();NET.p2p=true;}catch(e){NET.status='off';NET.err='온라인 모듈을 불러오지 못했어요';return;}}
+ else{try{NET.room=await C.use('room');}catch(e){NET.room=null;}
+ try{NET.user=await C.use('user');}catch(e){NET.user=null;}}
  if(!NET.room){NET.status='off';return;}
  NET.status='ok';
  NET.room.onPeers(()=>{},e=>{NET.status='off';NET.err='온라인 연결 불가 ('+e.code+')';});
@@ -2101,9 +2147,9 @@ async function joinRoom(code,host){
  NET.err='';NET.busy=true;
  try{
   if(NET.named){try{await NET.named.leave();}catch(e){}NET.named=null;}
-  const r=await NET.room.join('pp-'+code.toLowerCase());
+  let r;try{r=await NET.room.join('pp-'+code.toLowerCase());}catch(e){NET.busy=false;NET.err=(e&&e.message==='no-room')?'그 방을 찾을 수 없어요 (코드 확인)':'방에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';return;}
   NET.named=r;NET.code=code;NET.isHost=host;NET.j=Date.now();NET.offs={};NET.ready=false;NET.lastStartGid=null;
-  r.onPeers(()=>{},e=>{NET.err='방 연결이 끊겼어요 ('+e.code+')';});
+  r.onPeers(()=>{},e=>{NET.err=e.code==='host-left'?'방장(첫 입장자)이 나가서 연결이 끊겼어요. 다시 입장해 주세요':'방 연결이 끊겼어요 ('+e.code+')';});
   await r.presence({nick:NET.nick,c:charSel,ready:0,host:host?1:0,j:NET.j,clk:Date.now(),st:'room',rmode:NET.rmode||1,rdiff:diff,rsong:Math.min(songSel,N_BUILTIN-1),ai:NET.ai===false?0:1});
   state='room';
   try{location.hash='room-'+code.toLowerCase();}catch(e){}
@@ -2240,7 +2286,7 @@ function drawRoom(t,dt){
  const px=40,py=24,pw=1200,ph=672;panelBox(px,py,pw,ph);
  g.font=`900 italic 30px ${FONT}`;g.fillStyle='#3d2752';g.fillText('ROOM',px+30,py+50);
  g.font=`900 40px ${FONT}`;g.fillStyle='#e8456f';g.fillText(NET.code.split('').join(' '),px+140,py+54);
- btn(px+340,py+18,170,40,t-NET.copiedT<1.5?'복사됨!':'초대 링크 복사',false,()=>{const u=ART_URL+'#room-'+NET.code.toLowerCase();try{navigator.clipboard.writeText(u).then(()=>{NET.copiedT=performance.now()/1000;}).catch(()=>{NET.info=u;});}catch(e){NET.info=u;}},'#4f6cf0',14);
+ btn(px+340,py+18,170,40,t-NET.copiedT<1.5?'복사됨!':'초대 링크 복사',false,()=>{const u=(NET.p2p?location.origin+location.pathname:ART_URL)+'#room-'+NET.code.toLowerCase();try{navigator.clipboard.writeText(u).then(()=>{NET.copiedT=performance.now()/1000;}).catch(()=>{NET.info=u;});}catch(e){NET.info=u;}},'#4f6cf0',14);
  btn(px+pw-150,py+18,120,40,'방 나가기',false,()=>leaveRoom(false),'#4f6cf0',15);
  g.font=`600 13px ${FONT}`;g.fillStyle='#6a5a90';g.fillText(NET.info?NET.info:'친구는 로비에서 코드를 입력하거나 초대 링크로 들어와요',px+530,py+44);
  // slots
