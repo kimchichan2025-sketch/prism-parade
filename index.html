@@ -1793,11 +1793,12 @@ function ytBuildPanel(){if(YTS.el)return;const d=document.createElement('div');d
  <input id="ytQ" placeholder="노래 검색어"><button id="ytSearch">검색</button><button id="ytLiked" class="o">♥ 내 좋아요 영상</button>
  <div id="ytResults"></div>
  <input id="ytUrl" placeholder="또는 YouTube 링크 붙여넣기"><button id="ytLoad" class="r">영상 불러오기</button>
- <button id="ytAutoFull" class="g" style="width:100%;font-size:16px;padding:12px">🎧 자동 채보 (곡 전체 분석 · 2배속)</button>
- <button id="ytAutoQuick" class="o" style="width:100%">⚡ 빠른 자동 채보 (15초만 듣고 박자 분석)</button>
+ <button id="ytAutoSample" class="g" style="width:100%;font-size:16px;padding:12px">⚡ 자동 채보 (약 30초)</button>
+ <button id="ytAutoFull" class="o" style="width:100%">🎧 정밀 채보 (곡 전체 2배속 · 곡 길이의 절반)</button>
+ <button id="ytAutoQuick" style="display:none"></button>
  <button id="ytStop" style="width:100%;display:none;background:#e8456f">■ 여기까지만 분석하고 채보 만들기</button>
  <div id="ytProg" style="height:8px;background:#eee;border-radius:4px;overflow:hidden;display:none"><div style="height:100%;width:0;background:linear-gradient(90deg,#14b386,#7fffd8)"></div></div>
- <div id="ytInfo" class="note">노래를 고른 뒤 <b>🎧 자동 채보</b>를 누르세요. 공유 창이 뜨면 <b>「이 탭」</b>을 고르고 <b>「탭 오디오도 공유」</b>를 켠 채 공유를 누르면, 스피커로 소리를 내지 않고 백그라운드에서 곡을 분석해 노트를 자동으로 찍어요. (PC 크롬·엣지)</div>
+ <div id="ytInfo" class="note">노래를 고른 뒤 <b>⚡ 자동 채보</b>를 누르세요 (곡 길이와 상관없이 약 30초). 공유 창이 뜨면 <b>「이 탭」</b>을 고르고 <b>「탭 오디오도 공유」</b>를 켠 채 공유를 누르면, 스피커로 소리를 내지 않고 백그라운드에서 곡을 분석해 노트를 자동으로 찍어요. (PC 크롬·엣지)</div>
  <div id="ytBox"><div id="ytPlayerDiv"></div></div>
  <details style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:#7a4fd6">수동 보정 (T 탭 · 싱크)</summary>
  <button id="ytTapBtn">TAP (T)</button>
@@ -1814,7 +1815,7 @@ function ytBuildPanel(){if(YTS.el)return;const d=document.createElement('div');d
  $('ytTapBtn').onclick=()=>ytTap();$('ytReset').onclick=()=>{YTS.taps=[];YTS.bpm=0;ytShowTap();};
  $('ytX2').onclick=()=>{if(YTS.bpm){YTS.bpm*=2;ytShowTap();}};$('ytD2').onclick=()=>{if(YTS.bpm){YTS.bpm/=2;ytShowTap();}};
  $('ytNudgeM').onclick=()=>{if(YTS.bpm){YTS.anchor-=60/YTS.bpm/4;ytShowTap();}};$('ytNudgeP').onclick=()=>{if(YTS.bpm){YTS.anchor+=60/YTS.bpm/4;ytShowTap();}};
- $('ytMake').onclick=()=>ytMakeSong();$('ytAutoFull').onclick=()=>ytAutoChart(true);$('ytAutoQuick').onclick=()=>ytAutoChart(false);$('ytStop').onclick=()=>{YTS.stopReq=true;};
+ $('ytMake').onclick=()=>ytMakeSong();$('ytAutoSample').onclick=()=>ytSampleChart();$('ytAutoFull').onclick=()=>ytAutoChart(true);$('ytAutoQuick').onclick=()=>ytAutoChart(false);$('ytStop').onclick=()=>{YTS.stopReq=true;};
  $('ytSyncM').onclick=()=>ytSync(-0.02);$('ytSyncP').onclick=()=>ytSync(0.02);
  d.addEventListener('keydown',e=>e.stopPropagation());}
 function ytMsg(t){if(YTS.el)YTS.el.querySelector('#ytInfo').innerHTML=t;}
@@ -1897,7 +1898,7 @@ function ytFit(){const T=YTS.taps;if(T.length<4)return;const ds=[];for(let i=1;i
  const den=n*skk-sk*sk;if(!den)return;const p=(n*skt-sk*st)/den,b=(st-p*sk)/n;let bpm=60/p;while(bpm<70)bpm*=2;while(bpm>200)bpm/=2;
  YTS.bpm=Math.round(bpm*10)/10;YTS.anchor=b;let e2=0;for(let i=0;i<n;i++){const r=T[i]-(b+p*ks[i]);e2+=r*r;}YTS.jit=Math.sqrt(e2/n);}
 function ytShowTap(){const n=YTS.taps.length;ytMsg(YTS.bpm?`<b>${ytEsc(YTS.title)}</b><br>BPM <b style="font-size:18px;color:#e8456f">${YTS.bpm}</b> · 탭 ${n}회 · 첫 강박 ${YTS.anchor.toFixed(2)}s<br>${YTS.auto?'⚡ 자동 채보 완료! Enter로 플레이 · 더 탭하면 다시 맞춰요':n<6?'조금 더 탭해 주세요 (6회면 자동 완성)':'박이 흔들려요 — 조금 더 탭해 주세요 (오차 '+Math.round(YTS.jit*1000)+'ms)'}`:
- (n?`<b>${ytEsc(YTS.title)}</b><br>탭 ${n}회 · 6번 치면 자동 완성`:`✔ <b>${ytEsc(YTS.title)}</b> 준비 완료!<br>아래 <b>🎧 자동 채보</b>를 눌러 주세요.`));}
+ (n?`<b>${ytEsc(YTS.title)}</b><br>탭 ${n}회 · 6번 치면 자동 완성`:`✔ <b>${ytEsc(YTS.title)}</b> 준비 완료!<br>아래 <b>⚡ 자동 채보</b>를 눌러 주세요.`));}
 function genTapSlots(bpm,t0,dur,seed){const R2=mulberry(seed),beat=60/bpm,barT=4*beat,nb=Math.max(8,Math.floor((dur-t0)/barT)-1);
  const kickP=[[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],[1,0,0,1,0,0,1,0,0,0,1,0,0,0,0,0],[1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0]];
  const snP=[[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],[0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0]];
@@ -1928,6 +1929,64 @@ function ytCover(on,p,sub){const box=YTS.el&&YTS.el.querySelector('#ytBox');if(!
  c.querySelector('.p').textContent=Math.round((p||0)*100)+'%';c.querySelector('.bar b').style.width=Math.round((p||0)*100)+'%';c.querySelector('.s').textContent=sub||'';}
 function ytProg(p){const b=YTS.el.querySelector('#ytProg');b.style.display=p==null?'none':'block';if(p!=null)b.firstElementChild.style.width=Math.round(p*100)+'%';}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function ytOnset(pcm,sr,rate){const FR=0.01,hop=Math.max(1,Math.round(sr*FR/rate)),n=Math.floor(pcm.length/hop);
+ const lo=new Float32Array(n),hi=new Float32Array(n),en=new Float32Array(n);let l1=0,l2=0;const a1=1-Math.exp(-TAU*160*rate/sr*(sr/sr)),a2=1-Math.exp(-TAU*1800/sr);
+ const b1=1-Math.exp(-TAU*160/sr);
+ for(let f=0;f<n;f++){let sl=0,sh=0,se=0;const o=f*hop;for(let i=0;i<hop;i++){const x=pcm[o+i];l1+=b1*(x-l1);l2+=a2*(x-l2);const h=x-l2;sl+=l1*l1;sh+=h*h;se+=x*x;}
+  lo[f]=Math.log(1e-7+sl/hop);hi[f]=Math.log(1e-7+sh/hop);en[f]=se/hop;}
+ const od=arr=>{const o=new Float32Array(n);for(let f=2;f<n;f++)o[f]=Math.max(0,arr[f]-Math.max(arr[f-1],arr[f-2]));return o;};
+ return{oL:od(lo),oH:od(hi),en,n,FR};}
+async function ytOpenCapture(){
+ if(YTS.analyzing)return null;if(!YTS.player||!YTS.player.getDuration){ytMsg('먼저 노래(영상)를 불러와 주세요.');return null;}
+ if(!(navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia)){ytMsg('이 브라우저는 탭 소리 캡처를 지원하지 않아요. PC의 크롬이나 엣지에서 열어 주세요. (「수동 보정」의 T 탭 방식은 어디서나 돼요)');return null;}
+ initAudio();try{await AC.resume();}catch(e){}
+ let stream;try{stream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,suppressLocalAudioPlayback:true},preferCurrentTab:true,selfBrowserSurface:'include',systemAudio:'include',surfaceSwitching:'exclude'});}
+ catch(e){ytMsg('공유가 취소됐어요. 다시 누르고 「이 탭」 + 「탭 오디오도 공유」를 선택해 주세요.');return null;}
+ stream.getVideoTracks().forEach(t=>t.stop());const at=stream.getAudioTracks()[0];
+ if(!at){stream.getTracks().forEach(t=>t.stop());ytMsg('소리가 공유되지 않았어요. 공유 창에서 <b>「탭 오디오도 공유」</b>를 켜고 다시 시도해 주세요.');return null;}
+ try{await at.applyConstraints({suppressLocalAudioPlayback:true});}catch(e){}
+ let silent=false;try{silent=!!at.getSettings().suppressLocalAudioPlayback;}catch(e){}YTS.silent=silent;return at;}
+async function ytSampleChart(){
+ const at=await ytOpenCapture();if(!at)return;
+ const dur=YTS.player.getDuration()||0;if(dur<20){at.stop();ytMsg('영상 길이를 읽지 못했어요. 영상을 잠깐 재생한 뒤 다시 눌러 주세요.');return;}
+ let rates=[1];try{rates=YTS.player.getAvailablePlaybackRates()||[1];}catch(e){}const rate=rates.includes(2)?2:Math.max(1,...rates.filter(r=>r<=2));
+ const K=dur<70?3:dur<150?4:5,L=Math.min(11,dur/K*0.9),starts=[];for(let i=0;i<K;i++)starts.push(clamp(dur*(0.04+0.9*i/(K-1))-L/2,0,dur-L));
+ const $=id=>YTS.el.querySelector('#'+id);YTS.analyzing=true;YTS.stopReq=false;$('ytAutoSample').disabled=$('ytAutoFull').disabled=true;if(MAIN)MAIN.gain.value=0;
+ ytCover(true,0,'곡 곳곳을 골라 듣는 중 🎧');
+ const src=AC.createMediaStreamSource(new MediaStream([at])),sp=AC.createScriptProcessor(4096,1,1),z=AC.createGain();z.gain.value=0;src.connect(sp);sp.connect(z);z.connect(AC.destination);
+ let cur=null;sp.onaudioprocess=e=>{if(!cur||!cur.on)return;const d=e.inputBuffer.getChannelData(0);cur.chunks.push(new Float32Array(d));cur.n+=d.length;if(YTS.playing)cur.pairs.push([cur.n,ytClock()]);};
+ const slices=[];ytCall('setPlaybackRate',rate);
+ for(let i=0;i<K&&!YTS.stopReq;i++){const s0=starts[i],s1=s0+L;ytCall('seekTo',s0,true);ytCall('playVideo');
+  for(let k=0;k<60;k++){await sleep(50);const v=ytClock();if(YTS.playing&&v>=s0-0.05&&v<s0+1.5)break;}await sleep(250);
+  cur={chunks:[],pairs:[],n:0,on:true};
+  while(true){await sleep(120);const v=ytClock(),p=(i+clamp((v-s0)/L,0,1))/K;ytCover(true,p*0.95,`곡 곳곳을 골라 듣는 중 🎧 (${i+1}/${K})`);ytProg(p);if(v>=s1||YTS.stopReq||(YTS.player.getPlayerState&&YTS.player.getPlayerState()===0))break;}
+  cur.on=false;if(cur.pairs.length>5&&cur.n>AC.sampleRate)slices.push(cur);}
+ ytCall('pauseVideo');ytCall('setPlaybackRate',1);try{sp.disconnect();src.disconnect();}catch(e){}at.stop();applyVol();YTS.analyzing=false;ytProg(null);$('ytAutoSample').disabled=$('ytAutoFull').disabled=false;
+ if(slices.length<2){ytCover(false);ytMsg('소리를 거의 못 들었어요. 「탭 오디오도 공유」가 켜져 있었는지 확인하고 다시 시도해 주세요.');return;}
+ ytCover(true,0.97,'노트 찍는 중…');await sleep(20);
+ const sr=AC.sampleRate,LAT=0.05,info=[];
+ for(const sl of slices){const pcm=new Float32Array(sl.n);let o=0;for(const c of sl.chunks){pcm.set(c,o);o+=c.length;}
+  let pk=0;for(let i=0;i<pcm.length;i+=97)pk=Math.max(pk,Math.abs(pcm[i]));if(pk<0.003)continue;
+  let m=sl.pairs.length,sx=0,sy=0,sxx=0,sxy=0;for(const [i,v] of sl.pairs){const x=i/sr;sx+=x;sy+=v;sxx+=x*x;sxy+=x*v;}
+  const b=(m*sxy-sx*sy)/Math.max(1e-9,m*sxx-sx*sx),a=(sy-b*sx)/m,r=b>0.5&&b<4?b:rate,vt0=a-LAT*r;
+  let res;try{res=analyzeAudio({sampleRate:sr,numberOfChannels:1,getChannelData:()=>pcm},'',r);}catch(e){continue;}
+  info.push({vt0,r,bpm:res.bpm,t0:vt0+res.t0,env:ytOnset(pcm,sr,r),len:pcm.length/sr*r});}
+ if(info.length<2){ytCover(false);ytMsg('들린 소리가 너무 작아요(무음). 영상 소리를 켜고 「탭 오디오도 공유」를 체크했는지 확인해 주세요.');return;}
+ // global tempo: fold slice BPMs to the median octave, then fit beat times across slices
+ const bs=info.map(x=>x.bpm).sort((a,b)=>a-b);let bpm=bs[bs.length>>1];for(const x of info){while(x.bpm<bpm*0.7)x.bpm*=2;while(x.bpm>bpm*1.4)x.bpm/=2;}
+ let beat=60/bpm;const ref=info[0];for(let it=0;it<2;it++){let n=0,sk=0,st=0,skk=0,skt=0;for(const x of info){const k=Math.round((x.t0-ref.t0)/beat);n++;sk+=k;st+=x.t0;skk+=k*k;skt+=k*x.t0;}
+  const den=n*skk-sk*sk;if(den>0){const nb=(n*skt-sk*st)/den;if(Math.abs(nb-beat)/beat<0.03)beat=nb;}}
+ bpm=60/beat;const barT=4*beat;let T0=ref.t0-Math.floor(ref.t0/barT)*barT;if(T0<0.05)T0+=barT;
+ const nb=Math.max(8,Math.floor((dur-T0)/barT)-1);
+ const strAt=(x,t)=>{const lt=(t-x.vt0)/x.r*x.r;const E=x.env;let mL=0,mH=0;for(let d=-0.035;d<=0.0351;d+=0.01){const f=Math.round((t-x.vt0+d)/E.FR);if(f>=0&&f<E.n){mL=Math.max(mL,E.oL[f]);mH=Math.max(mH,E.oH[f]);}}return[mL,mH];};
+ const enAt=(x,t0,t1)=>{const E=x.env;let sm=0,c=0;for(let f=Math.max(0,Math.floor((t0-x.vt0)/E.FR));f<Math.min(E.n,Math.floor((t1-x.vt0)/E.FR));f++){sm+=E.en[f];c++;}return c?sm/c:0;};
+ const slots=[],barE=[];
+ for(let b=0;b<nb;b++){const tb=T0+b*barT;let x=info.find(q=>tb>=q.vt0+0.2&&tb+barT<=q.vt0+q.len-0.05),tm=tb;
+  if(!x){x=info.reduce((A,q)=>Math.abs(q.vt0+q.len/2-tb)<Math.abs(A.vt0+A.len/2-tb)?q:A,info[0]);const fb=Math.ceil((x.vt0+0.2-T0)/barT),lb=Math.floor((x.vt0+x.len-0.05-T0)/barT)-1,cnt=Math.max(1,lb-fb+1);tm=T0+(fb+(((b-fb)%cnt)+cnt)%cnt)*barT;}
+  for(let j=0;j<16;j++){const [Lv,Hv]=strAt(x,tm+j*beat/4);slots.push({L:Lv,H:Hv});}barE.push(enAt(x,tm,tm+barT));}
+ const blockE=[];for(let b=0;b<nb;b+=8){let sm=0,c=0;for(let k=b;k<Math.min(nb,b+8);k++){sm+=barE[k];c++;}blockE.push(sm/c);}
+ const cc=chartsFromSlots(slots,nb,blockE,dur);const S=ytAddSong(bpm,T0,cc.charts,cc.lv,Math.min(dur,T0+nb*barT+barT),'빠른 자동 채보');ytCover(false);
+ ytMsg(`✔ 자동 채보 완료! 「${ytEsc(S.title)}」 BPM ${S.bpm} · 레벨 ${S.lv.join('/')}<br><b>Enter</b>로 바로 플레이! 더 정확하게 하려면 「🎧 정밀 채보」, 박자가 살짝 어긋나면 「수동 보정 → 싱크」.`);}
 async function ytAutoChart(full){
  if(YTS.analyzing)return;if(!YTS.player||!YTS.player.getDuration){ytMsg('먼저 노래(영상)를 불러와 주세요.');return;}
  if(!(navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia)){ytMsg('이 브라우저는 탭 소리 캡처를 지원하지 않아요. PC의 크롬이나 엣지에서 열어 주세요. (아래 「수동 보정」의 T 탭 방식은 어디서나 돼요)');return;}
